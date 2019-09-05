@@ -33,8 +33,6 @@
 2.	继承Thread类，优点是：实现简单，直接使用this即可获取当前线程。Thread子类对象已经继承Thread类，无法再继承其他类。
 3.	采用Callable接口，执行体可以返回值，从而进行比较。
 
-
-
 #### 2. Callable Future与FutureTask详解
 Callable是个接口，声明了call方法，泛型接口，call返回结果类型是传入的类型。
 ```java
@@ -42,7 +40,6 @@ public interface Callable<V> {
     V call() throws Exception;
 }
 ```
-
 Future可以对具体的Runnable或Callable任务提供三种功能：
 1. 获取任务执行状态：完成/终止
 2. 取消任务
@@ -81,15 +78,16 @@ https://www.cnblogs.com/dolphin0520/p/3949310.html
 2.	就绪：也被称为“可执行状态”，线程被创建后，其他线程调用了该线程对象的start方法，随时可获取CPU时间运行。
 3.	运行：线程获取CPU时间运行。注意，线程只能由就绪状态到运行状态。（可以调用Thread.yield方法让出时间片退回到就绪状态，但注意让出时间片不是强制，而是看当前线程意愿）
 4.	阻塞状态：阻塞是由于线程由于某种原因放弃CPU使用权，停止运行。直到重新进入就绪状态，才有机会转到运行状态。阻塞有三种：
-    1. 同步阻塞：线程竞争synchronized锁或其他锁失败，阻塞进入到同步阻塞队列。直到其他线程释放锁，才有机会获取锁，变成就绪状态。
-    2. 等待阻塞：线程获取锁后，因为某种条件不满足，调用锁对象的wait方法，进入到等待阻塞队列，并释放锁。直到通知线程完成条件，调用锁对象的notify/notifyAll方法通知等待线程，等待线程才能从等待阻塞状态转到同步阻塞，重新竞争锁。
-    3. 其他阻塞：调用线程的sleep()或join()或发出了I/O请求时，线程会进入到阻塞状态。当sleep()状态超时、join()等待线程终止或者超时、或者I/O处理完毕时，线程重新转入就绪状态。
+    1. 阻塞Blocked：线程竞争synchronized锁或其他锁失败，阻塞进入到同步阻塞队列。直到其他线程释放锁，才有机会获取锁，变成就绪状态。
+    2. 等待Waitting：线程获取锁后，因为某种条件不满足，调用锁对象的wait方法，进入到等待阻塞队列，并释放锁。直到通知线程完成条件，调用锁对象的notify/notifyAll方法通知等待线程，等待线程才能从等待阻塞状态转到同步阻塞，重新竞争锁。
+    3. 超时等待Time_Waitting：调用线程的sleep()或join()或发出了I/O请求时，线程会进入到阻塞状态。当sleep()状态超时、join()等待线程终止或者超时、或者I/O处理完毕时，线程重新转入就绪状态。
 5.	死亡状态：线程执行完毕或因异常退出，生命周期结束。
-[pic]
+
+    ![线程状态](pics\java_cc_thread_state.png)
 
 ### 4. 线程方法
 [pic]
-1. Thread.sleep():让当前线程睡眠指定毫秒数，但不释放锁；睡眠结束进入就绪状态。
+1. Thread.sleep():让当前线程睡眠指定毫秒数，进入超时等待，但不释放锁；睡眠结束进入就绪状态，抛出InterruptedException。
 
 2. join(): 当前线程中调用其他线程对象的join方法，如t1.join()，当前线程进入阻塞状态，执行其他线程t1，当其他线程执行完毕，当前线程才可运行。注意，当前线程不释放锁。 <br>
 join方法的作用是将分出来的线程合并回去，等待分出来的线程执行完毕后继续执行原有线程。类似于方法调用。（相当于调用thead.run()）
@@ -176,10 +174,22 @@ https://www.jianshu.com/p/44831d1d10d3
 jstack 可以dump 线程信息，查看一个进程中各个线程的状态**
 
 #### 死锁
+1. 饥饿：
+    1. 当线程由于无法访问它所需要的资源而不能继续执行时，就发生了饥饿（某线程永远等待）。引发饥饿的最常见资源就是CPU时钟周期。比如线程的优先级问题。在Thread API中定义的线程优先级只是作为线程调度的参考。在Thread API中定义了10个优先级，JVM根据需要将它们映射到操作系统的调度优先级。这种映射是与特定平台相关的，因此在某个操作系统中两个不同的Java优先级可能被映射到同一优先级，而在另一个操作系统中则可能被映射到另一个不同的优先级。
+    2. 当提高某个线程的优先级时，可能不会起到任何作用，或者也可能使得某个线程的调度优先级高于其他线程，从而导致饥饿。
+    3. 通常，我们尽量不要改变线程的优先级，只要改变了线程的优先级，程序的行为就将与平台相关，并且会导致发生饥饿问题的风险。
+
+    4. 事务T1封锁了数据R,事务T2又请求封锁R，于是T2等待。T3也请求封锁R，当T1释放了R上的封锁后，系统首先批准了T3的请求，T2仍然等待。然后T4又请求封锁R，当T3释放了R上的封锁之后，系统又批准了T的请求......T2可能永远等待
+
+2. 活锁
+    1. 活锁是另一种形式的活跃性问题，该问题尽管不会阻塞线程，但也不能继续执行，因为线程将不断重复执行相同的操作，而且总会失败。活锁通常发生在处理事务消息的应用程序中。如果不能成功处理某个消息，那么消息处理机制将回滚整个事务，并将它重新放到队列的开头。虽然处理消息的线程并没有阻塞，但也无法继续执行下去。这种形式的活锁通常是由过度的错误恢复代码造成的，因为它错误地将不可修复的错误作为可修复的错误。
+
+    2. 当多个相互协作的线程都对彼此进行响从而修改各自的状态，并使得任何一个线程都无法继续执行时，就发生了活锁。要解决这种活锁问题，需要在重试机制中引入随机性。在并发应用程序中，通过等待随机长度的时间和回退可以有效地避免活锁的发生。
+
 
 ### 3. 线程通信/同步工具使用
 当多个线程访问某个状态变量，并有一个线程执行写入操作时，需要采用同步机制保证线程安全性。
-同步机制包括synchronize内置锁、显式锁、volatile变量和原子变量。
+同步机制包括synchronized内置锁、显式锁、volatile变量和原子变量。
 
 #### 1. synchronized
 synchronized用于对对象加锁，锁住方法或代码块，可以保证被它修饰的方法或代码块在任意时刻只有一个线程被访问
@@ -238,11 +248,247 @@ synchronized用于对对象加锁，锁住方法或代码块，可以保证被�
 #### 4. Atomic
 1. Atomic原子类主要分为原子更新基本类、原子更新数组、原子更新引用类型、原子更新字段类，主要用于高并发环境下数据的原子性操作，简化同步处理。
 
-##### synchronize和lock区别 
-1. 层次：前者是JVM实现，后者是JDK实现
+### 4. ReentrantLock使用详解
+#### 使用
+1. 加锁与释放lock.lock()与unlock()
+2. 尝试获取锁lock.trylock() 尝试获取锁,当获取失败则直接返回false不会等待;直接使用非公平锁的nonfairTryAcquire方法。
+3. 超时获取lock.trylock(1000) 尝试获取锁,当超过时间，则直接返回false。
+4. 可中断lock.lockInterruptibly() 获取锁期间被中断抛出异常。
+```java
+    ReentrantLock lock = new ReentrantLock();
+    public void lockTest(){
+        try {
+            lock.lock();
+            lock.tryLock();
+        }finally {
+            lock.unlock();
+        }
+
+    
+        try {
+            lock.tryLock(5L, TimeUnit.SECONDS); // 等待期间被中断，抛出异常
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }finally {
+            lock.unlock();
+        }
+
+        try {
+            lock.lockInterruptibly();        // 等待期间被中断，抛出异常
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }finally {
+            lock.unlock();
+        }
+    }
+```
+https://blog.csdn.net/weixin_41704428/article/details/80374312
+
+#### 锁实现原理
+ReentrantLock的锁功能主要是通过继承了AbstractQueuedSynchronizer的内部类Sync来实现的，其lock()获取锁的主要流程如下： <br>
+1. ReentrantLock的lock方法会调用其成员内部类sync的lock方法
+```java
+    public void lock() {
+        this.sync.lock();
+    }
+
+```
+2. sync有两个实现类：公平锁FairSync和非公平锁NonfairSync实现了各自的lock方法,lock方法则调用了父类的acquire方法。
+```java
+    static final class NonfairSync extends ReentrantLock.Sync {
+        private static final long serialVersionUID = 7316153563782823691L;
+
+        NonfairSync() {
+        }
+
+        final void lock() {
+            if (this.compareAndSetState(0, 1)) {
+                this.setExclusiveOwnerThread(Thread.currentThread());
+            } else {
+                this.acquire(1);
+            }
+
+        }
+
+        protected final boolean tryAcquire(int var1) {
+            return this.nonfairTryAcquire(var1);
+        }
+    }
+
+    static final class FairSync extends ReentrantLock.Sync {
+        private static final long serialVersionUID = -3000897897090466540L;
+
+        FairSync() {
+        }
+
+        final void lock() {
+            this.acquire(1);
+        }
+
+        protected final boolean tryAcquire(int var1) {
+            Thread var2 = Thread.currentThread();
+            int var3 = this.getState();
+            if (var3 == 0) {
+                if (!this.hasQueuedPredecessors() && this.compareAndSetState(0, var1)) {
+                    this.setExclusiveOwnerThread(var2);
+                    return true;
+                }
+            } else if (var2 == this.getExclusiveOwnerThread()) {
+                int var4 = var3 + var1;
+                if (var4 < 0) {
+                    throw new Error("Maximum lock count exceeded");
+                }
+
+                this.setState(var4);
+                return true;
+            }
+
+            return false;
+        }
+    }
+```
+3. acquire方法在AQS中实现，通过tryAcquire()方法试图获取锁，获取到直接返回结果，否则通过嵌套调用acquireQueued()、addWaiter()方法将请求获取锁的线程加入等待队列，如果成功的话，将当前请求线程阻塞。tryAcquire又是由子类各自实现，定义了自己尝试获取锁的逻辑。
+    + 模板模式
+```java
+    public final void acquire(int var1) {
+        if (!this.tryAcquire(var1) && this.acquireQueued(this.addWaiter(AbstractQueuedSynchronizer.Node.EXCLUSIVE), var1)) {
+            selfInterrupt();
+        }
+    }
+```
+
+不同锁实现自己lock和tryAcquire方法
+##### 非公平锁
+1. 非公平锁lock方法上来就无视等待队列的存在而抢占锁，通过基于CAS操作的compareAndSetState(0, 1)方法，试图修改当前锁的状态，这个0表示AbstractQueuedSynchronizer内部的一种状态，针对互斥锁则是尚未有线程持有该锁，而>=1则表示存在线程持有该锁，并重入对应次数，这个上来就CAS的操作也是非公共锁的一种体现，CAS操作成功的话，则将当前线程设置为该锁的唯一拥有者。
+2. 抢占不成功的话，则调用父类的acquire()方法，按照上面讲的，继而会调用tryAcquire()方法，这个方法也是由最终实现类NonfairSync实现的。
+
+3. tryAcquire：还是上来先判断锁的状态，通过CAS来抢占，抢占成功，直接返回true，如果锁的持有者线程为当前线程的话，则通过累加状态标识重入次数。抢占不成功，或者锁的本身持有者不是当前线程，则返回false，继而后续通过进入等待队列的方式排队获取锁。可以通过以下简单的图来理解：
+```java
+        final boolean nonfairTryAcquire(int var1) {
+            Thread var2 = Thread.currentThread();
+            int var3 = this.getState();
+            if (var3 == 0) {
+                if (this.compareAndSetState(0, var1)) {
+                    this.setExclusiveOwnerThread(var2);
+                    return true;
+                }
+            } else if (var2 == this.getExclusiveOwnerThread()) {
+                int var4 = var3 + var1;
+                if (var4 < 0) {
+                    throw new Error("Maximum lock count exceeded");
+                }
+
+                this.setState(var4);
+                return true;
+            }
+
+            return false;
+        }
+```
+
+##### 公平锁
+1. 公平锁的lock()方法就比较简单了，直接调用acquire()方法, acquire调用锁对tryAcquire()方法
+2. tryAcquire：当前线程会在得到当前锁状态为0，即没有线程持有该锁，并且通过!hasQueuedPredecessors()判断当前等待队列没有前继线程（也就是说，没有比我优先级更高的线程在请求锁了）获取锁的情况下，通过CAS抢占锁，并设置自己为锁的当前拥有者，当然，如果是重入的话，和非公平锁处理一样，通过累加状态位标记重入次数。
+
+
+
+https://blog.csdn.net/lipeng_bigdata/article/details/52154637
+
+#### Condition条件对象
+1. AQS对象内部有一个ConditionObject内部类，ConditionObject其内部维护了一个单向队列，保存了头节点和尾节点，节点类型是AQS同步队列的节点类型Node。
+2. AQS子类对象Sync内部实现了一个创建并返回ConditionObject对象的方法newCondition，并进一步对ReentrantLock对象提供该方法，因此，通过ReentrantLock锁对象可以获取ConditionObject条件对象，其内部封装了表示等待队列的链表，当锁释放时，由于ConditionObject是AQS内部类，持有AQS对象的外部引用，因此，可以通过ConditionObject对象可以获取外部锁对象。
+
+```java
+public class ReentrantLock implements Lock {
+   private final Sync sync;	// AQS子类对象
+   abstract static class Sync extends AbstractQueuedSynchronizer {//AQS子类
+       final ConditionObject newCondition() {
+           return new ConditionObject();
+       }
+       // ... 为节省篇幅，省略其他方法
+   }
+
+   public Condition newCondition() {	// lock的获取Condition条件
+       return sync.newCondition();
+   }
+
+   // ... 为节省篇幅，省略其他方法
+}
+```
+
+3. 同时ConditionObject实现了Condition接口，Condition接口内部包含一套await/signal方法，类似await/notify方法；
+
+```java
+public interface Condition {
+    void await() throws InterruptedException;
+    void awaitUninterruptibly();
+    long awaitNanos(long nanosTimeout) throws InterruptedException;
+    boolean await(long time, TimeUnit unit) throws InterruptedException;
+    boolean awaitUntil(Date deadline) throws InterruptedException;
+    void signal();
+    void signalAll();
+}
+```
+
+4. 类似内置锁await/notify机制，线程首先需要获取锁，调用Condition对象的await/signal方法需要获取产生了该Condition对象的锁，
+
+使用方式：
+1. 等待线程：通过显示锁ReentrantLock对象产生Condition对象，在线程持有该显示锁对象的情况下，当条件不满足，调用Condition对象的await方法将线程插入等待队列，并释放锁。
+2. 通知线程：获取显示锁，完成条件，调用Condition对象的signal方法通知所有等待条件的锁。
+```java
+Lock lock = new ReentrantLock();
+Condition condition = lock.newCondition();
+//等待线程的典型模式
+public void conditionAWait() throws InterruptedException {
+    lock.lock();    //获取锁
+    try {
+        while (条件不满足) {
+            condition.await();  //使线程处于等待状态
+        }
+        条件满足后执行的代码;
+    } finally {
+        lock.unlock();    //释放锁
+    }
+}
+//通知线程的典型模式
+public void conditionSignal() throws InterruptedException {
+    lock.lock();    //获取锁
+    try {
+        完成条件;
+        condition.signalAll();  //唤醒处于等待状态的线程
+    } finally {
+        lock.unlock();    //释放锁
+    }
+}
+```
+
+与内置锁不同的是：
+一个显示锁可以创建多个Condition对象，对应多条不满足相应条件的等待队列。
+https://mp.weixin.qq.com/s?__biz=MzIxNTQ3NDMzMw==&mid=2247483917&idx=1&sn=6d074607603149b7e38b33a7bed7f417&scene=19#wechat_redirect
+
+1. 同步队列：由于线程未获取到锁，将未获取锁的线程封装成Node节点，插入到同步队列中。
+2. 等待队列：由于线程在执行过程中某个条件未满足（已获取锁），从而执行锁的await()方法，释放锁，并阻塞，插入到等待队列中等待条件完成。
+
+
+#### 公平锁与非公平锁
+
+当持有锁的时间相对较长或者请求锁的平均时间间隔较长，应该使用公平锁。在这些情况下，插队带来的吞吐量提升（当锁处于可用状态时，线程却还处于被唤醒的过程中）可能不会出现。
+
+非公平锁可能会引起线程饥饿，但是线程切换更少，吞吐量更大
+
+
+#### synchronize和lock区别 
+1. 层次：前者是JVM实现，后者是JDK-AQS实现
 2. 功能：synchronized仅能实现互斥与重入，后者可以实现可中断、可轮询、可定时、可公平、绑定多个条件、非块结构synchronized在阻塞时不会响应中断，Lock会响应中断，并抛出InterruptedException异常。
 3. 异常：前者线程中抛出异常时JVM会自动释放锁，后者必须手工释放
 4. 性能：synchronized性能已经大幅优化，如果synchronized能够满足需求，则尽量使用synchronized.
+
+#### ReentrantLock特有功能：
+1. 可以指定公平锁和非公平锁，synchronized只能是非公平锁。所谓公平锁，根据线程在阻塞队列中的顺序来获取锁，而非公平锁则是哪个线程抢到就是哪个线程获取锁。
+2. ReentrantLock提供了Condition条件类，可以根据等待条件的不同，设置不同的等待队列，从而对阻塞线程分组。而synchronized只对应一个等待队列。
+3. ReentrantLock提供了一个中断等待锁的线程的机制，通过lock.lockInterruptibly()来实现这个机制。也就是说，正在等待条件的线程可以选择放弃等待，处理其他线程。
+4. 定时或轮询: trylock()/tryLock(time)
+
 
 ### 4. Java并发安全特性
 #### 1. 原子性
