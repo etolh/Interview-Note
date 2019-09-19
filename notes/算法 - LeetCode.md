@@ -75,6 +75,7 @@ dp[i][j]:将word1前i个字符[0...i-1]变成word2前j个字符[0...j-1]的最�
 dp[0][j]=j dp[i][0]=i
 
 若word1[i-1]==word2[j-1],则dp[i][j]=dp[i-1][j-1]
+<<<<<<< HEAD
 否则，有三种方式
 1. 插入dp[i][j-1], word[i]插入一个word2[j-1]字符，w1[i]=w2[j-1],比较w1[0...i-1]与w2[0...j-2]
 2. 删除dp[i-1][j], word[i-1]删除，比较w1前面的
@@ -740,3 +741,4 @@ https://www.cnblogs.com/grandyang/p/4322653.html
 ### L146 LRU实现
 
 http://www.noteanddata.com/leetcode-146-LRU-Cache-java-solution-note-2.html
+
